@@ -27,7 +27,10 @@ const getRecorder = () => {
 		rate: 48000,
 		channel: 1,
 		device: process.env.AUDIO_DEVICE,
-		silence: false,
+		silence: 1,
+		thresholdStart: 0.4,
+		thresholdStop: 0.3,
+		keepSilence: false
 	});
 
 	return recorder;
@@ -42,25 +45,31 @@ const getAudioStream = (): Readable => {
 	return recordStream.pipe(encoder);
 }
 
-const audioStream = getAudioStream();
-let sendStream: Writable;
+
 
 io.on("connection", socket => {
 	console.log("connect");
 
 	socket.on("start", () => {
 		console.log("on start");
-		sendStream?.end();
-		sendStream = ss.createStream();
-		audioStream.unpipe();
+		// sendStream?.end();
+		const audioStream = getAudioStream();
+		const sendStream = ss.createStream();
+		// audioStream.unpipe();
 		audioStream.pipe(sendStream);
+		audioStream.on("end", () => {
+			console.log("silence end");
+		})
 
 		ss(socket).emit("sendStream", sendStream);
 	})
 
 	socket.on("end", () => {
-		audioStream.unpipe();
-		sendStream?.end();
+		console.log("force end");
+		// audioStream.stop();
+
+		// audioStream.unpipe();
+		// sendStream?.end();
 	});
 
 })
