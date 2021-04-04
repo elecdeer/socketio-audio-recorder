@@ -10,7 +10,7 @@ import prism from "prism-media";
 
 import {createServer} from "http";
 import socketio from 'socket.io';
-import {Readable} from "stream";
+import {Readable, Writable} from "stream";
 
 const port = process.env.PORT || 8080;
 const httpServer = createServer();
@@ -43,13 +43,16 @@ const getAudioStream = (): Readable => {
 }
 
 const audioStream = getAudioStream();
+let sendStream: Writable;
 
 io.on("connection", socket => {
 	console.log("connect");
 
 	socket.on("start", () => {
 		console.log("on start");
-		const sendStream = ss.createStream();
+		sendStream?.end();
+		sendStream = ss.createStream();
+		audioStream.unpipe();
 		audioStream.pipe(sendStream);
 
 		ss(socket).emit("sendStream", sendStream);
@@ -57,6 +60,7 @@ io.on("connection", socket => {
 
 	socket.on("end", () => {
 		audioStream.unpipe();
+		sendStream?.end();
 	});
 
 })
