@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 
 // @ts-ignore
 import AudioRecorder from "node-audiorecorder";
