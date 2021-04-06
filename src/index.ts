@@ -1,16 +1,12 @@
 require("dotenv").config();
 
-
-// @ts-ignore
-import AudioRecorder from "node-audiorecorder";
+import {SoXRecorder} from "node-sox-recorder"
 
 // @ts-ignore
 import ss from 'socket.io-stream';
-import prism from "prism-media";
 
 import {createServer} from "http";
 import socketio from 'socket.io';
-import {Readable, Writable} from "stream";
 
 const port = process.env.PORT || 8080;
 const httpServer = createServer();
@@ -22,32 +18,26 @@ const io = new socketio.Server(httpServer, {
 
 
 const openRecorder = () => {
-	const recorder = new AudioRecorder({
-		program: "sox",
+	return new SoXRecorder({
+		channels: 1,
 		rate: 48000,
-		channel: 1,
 		device: process.env.AUDIO_DEVICE,
-		silence: false,
+		silence: {
+			keepSilence: false,
+			above: {
+				times: 1,
+				durationSec: "0.1t",
+				threshold: "10%",
+			}
+		},
+		opusEncode: true,
 	});
-
-	return recorder;
 }
-
-
-const getAudioStream = (): Readable => {
-	const recorder = openRecorder();
-	recorder.start();
-	const recordStream = recorder.stream();
-
-	const encoder = new prism.opus.Encoder({channels: 1, rate: 48000, frameSize: 960});
-	return recordStream.pipe(encoder);
-}
-
 
 
 io.on("connection", socket => {
 
-	let recorder: any;
+	let recorder: SoXRecorder;
 	console.log("connect");
 
 	socket.on("start", () => {
@@ -55,14 +45,10 @@ io.on("connection", socket => {
 
 		recorder = openRecorder();
 		recorder.start();
-		const recordStream = recorder.stream();
-
-		const encoder = new prism.opus.Encoder({channels: 1, rate: 48000, frameSize: 960});
-
+		const recordStream = recorder.stream()!;
 
 		const sendStream = ss.createStream();
-		// audioStream.unpipe();
-		recordStream.pipe(encoder).pipe(sendStream);
+		recordStream.pipe(sendStream);
 		recordStream.on("end", () => {
 			console.log("stream end");
 		})
@@ -73,10 +59,6 @@ io.on("connection", socket => {
 	socket.on("end", () => {
 		console.log("force end");
 		recorder.stop();
-		// audioStream.stop();
-
-		// audioStream.unpipe();
-		// sendStream?.end();
 	});
 
 })
