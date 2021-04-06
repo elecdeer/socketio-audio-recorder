@@ -21,23 +21,20 @@ const io = new socketio.Server(httpServer, {
 });
 
 
-const getRecorder = () => {
+const openRecorder = () => {
 	const recorder = new AudioRecorder({
 		program: "sox",
 		rate: 48000,
 		channel: 1,
 		device: process.env.AUDIO_DEVICE,
-		silence: 1,
-		thresholdStart: 0.4,
-		thresholdStop: 0.3,
-		keepSilence: false
+		silence: false,
 	});
 
 	return recorder;
 }
 
 const getAudioStream = (): Readable => {
-	const recorder = getRecorder();
+	const recorder = openRecorder();
 	recorder.start();
 	const recordStream = recorder.stream();
 
@@ -48,17 +45,19 @@ const getAudioStream = (): Readable => {
 
 
 io.on("connection", socket => {
+
+	let audioStream: any;
 	console.log("connect");
 
 	socket.on("start", () => {
 		console.log("on start");
 		// sendStream?.end();
-		const audioStream = getAudioStream();
+		audioStream = getAudioStream();
 		const sendStream = ss.createStream();
 		// audioStream.unpipe();
 		audioStream.pipe(sendStream);
 		audioStream.on("end", () => {
-			console.log("silence end");
+			console.log("stream end");
 		})
 
 		ss(socket).emit("sendStream", sendStream);
@@ -66,6 +65,7 @@ io.on("connection", socket => {
 
 	socket.on("end", () => {
 		console.log("force end");
+		audioStream.stop();
 		// audioStream.stop();
 
 		// audioStream.unpipe();
