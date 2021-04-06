@@ -33,6 +33,7 @@ const openRecorder = () => {
 	return recorder;
 }
 
+
 const getAudioStream = (): Readable => {
 	const recorder = openRecorder();
 	recorder.start();
@@ -46,17 +47,23 @@ const getAudioStream = (): Readable => {
 
 io.on("connection", socket => {
 
-	let audioStream: any;
+	let recorder: any;
 	console.log("connect");
 
 	socket.on("start", () => {
 		console.log("on start");
-		// sendStream?.end();
-		audioStream = getAudioStream();
+
+		recorder = openRecorder();
+		recorder.start();
+		const recordStream = recorder.stream();
+
+		const encoder = new prism.opus.Encoder({channels: 1, rate: 48000, frameSize: 960});
+
+
 		const sendStream = ss.createStream();
 		// audioStream.unpipe();
-		audioStream.pipe(sendStream);
-		audioStream.on("end", () => {
+		recordStream.pipe(encoder).pipe(sendStream);
+		recordStream.on("end", () => {
 			console.log("stream end");
 		})
 
@@ -65,7 +72,7 @@ io.on("connection", socket => {
 
 	socket.on("end", () => {
 		console.log("force end");
-		audioStream.stop();
+		recorder.stop();
 		// audioStream.stop();
 
 		// audioStream.unpipe();
